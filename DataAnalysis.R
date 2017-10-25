@@ -1,5 +1,7 @@
-alldata_adjMost <- read.csv("~/Documents/cantonesePropAdj/adjMost/data/alldata_adjMost.csv")
-alldata_propMost <- read.csv("~/Documents/cantonesePropAdj/propMost/data/alldata_propMost.csv")
+#alldata_adjMost <- read.csv("~/Documents/cantonesePropAdj/adjMost/data/alldata_adjMost.csv")
+#alldata_propMost <- read.csv("~/Documents/cantonesePropAdj/propMost/data/alldata_propMost.csv")
+
+load("dataset.RData")
 
 alldata_adjMost$correct <- with(alldata_adjMost, ifelse(corrAns == TRUE, key_resp_TrueFalse.keys == "f", key_resp_TrueFalse.keys == "j"))
 head(alldata_adjMost[c("corrAns","key_resp_TrueFalse.keys","correct")])
@@ -11,12 +13,37 @@ library(ggplot2)
 library(plyr)
 library(gridExtra)
 
+#first get rid of every trial where the response wasn't 1 or 0
 alldata_propMost$correct <- as.numeric(alldata_propMost$correct)
 alldata_adjMost$correct <- as.numeric(alldata_adjMost$correct)
 
-ggplot(alldata_propMost, aes(x=ratio, y = correct))+
-  stat_summary(geom = "point", fun.y = "mean")
-ggplot(alldata_adjMost, aes(x=ratio, y = correct))+
+#see what ratios we have -- we can abstract away from these and just use bins for plots 
+#NB: ratio for propMost condition is defined as target:total; ratio for adjMost condition is defined as target:largestSubset 
+levels(as.factor(alldata_propMost$ratio))
+levels(as.factor(alldata_adjMost$ratio))
+
+#combine detMost and adjMost 
+allData <- rbind(alldata_propMost, alldata_adjMost)
+
+#how many participants? 
+length(levels(as.factor(allData$participant))) -> numParticipants
+
+#get overall participant avgs by bins 
+bySubj <- ddply(allData, .(question, participant, ratioBin), summarize, meanAcc=mean(correct))
+
+#get overall avgs by bins 
+groupAvgs <- ddply(bySubj, .(question, ratioBin), summarize, meanCorrect=mean(meanAcc), se=sd(meanAcc)/sqrt(numParticipants))
+
+#plot the overall group accuracy
+ggplot(data=groupAvgs) + geom_point(aes(x=ratioBin, y=meanCorrect, color=question)) + theme_bw() + 
+  scale_y_continuous(limits = c(.5,1)) + ggtitle("Overall Group Data")
+
+##Now we need to look at how this changes given # of distractor sets 
+
+#
+ggplot(alldata_propMost, aes(x=ratioBin, y = correct))+
+  stat_summary(geom = "point", fun.y = "mean") 
+ggplot(alldata_adjMost, aes(x=ratioBin, y = correct))+
   stat_summary(geom = "point", fun.y = "mean")
 
 fit.prop<-mle.weber.guess(r=alldata_propMost$ratio,y=alldata_propMost$correct)
