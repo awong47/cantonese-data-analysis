@@ -38,7 +38,22 @@ groupAvgs <- ddply(bySubj, .(question, ratioBin), summarize, meanCorrect=mean(me
 ggplot(data=groupAvgs) + geom_point(aes(x=ratioBin, y=meanCorrect, color=question)) + theme_bw() + 
   scale_y_continuous(limits = c(.5,1)) + ggtitle("Overall Group Data")
 
+
 ##Now we need to look at how this changes given # of distractor sets 
+#get overall participant avgs by bins 
+bySubj_byDistractors <- ddply(allData, .(question, participant, numberDistractorSets, ratioBin), summarize, meanAcc=mean(correct))
+
+#get overall avgs by bins 
+groupAvgs_byDistractors <- ddply(bySubj_byDistractors, .(question, numberDistractorSets, ratioBin), summarize, meanCorrect=mean(meanAcc), 
+                                 se=sd(meanAcc)/sqrt(numParticipants))
+groupAvgs_byDistractors$upper <- groupAvgs_byDistractors$meanCorrect + groupAvgs_byDistractors$se
+groupAvgs_byDistractors$lower <- groupAvgs_byDistractors$meanCorrect - groupAvgs_byDistractors$se
+
+#plot the overall group accuracy
+ggplot(data=groupAvgs_byDistractors) + geom_point(aes(x=ratioBin, y=meanCorrect, color=question)) + 
+  scale_y_continuous(limits = c(.5,1)) + ggtitle("Overall Group Data, by # distractor sets") + facet_wrap(~numberDistractorSets) +
+  geom_errorbar(aes(x=ratioBin, ymax=upper, ymin=lower, color=question), size=0.15, width=.05) +
+  theme_bw() + theme(text = element_text(size=20))
 
 #
 ggplot(alldata_propMost, aes(x=ratioBin, y = correct))+
