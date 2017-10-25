@@ -31,12 +31,34 @@ length(levels(as.factor(allData$participant))) -> numParticipants
 #get overall participant avgs by bins 
 bySubj <- ddply(allData, .(question, participant, ratioBin), summarize, meanAcc=mean(correct))
 
-#get overall avgs by bins 
+#get overall avgs by bins along with w&g 
 groupAvgs <- ddply(bySubj, .(question, ratioBin), summarize, meanCorrect=mean(meanAcc), se=sd(meanAcc)/sqrt(numParticipants))
+groupAvgs$upper <- groupAvgs$meanCorrect + groupAvgs$se
+groupAvgs$lower <- groupAvgs$meanCorrect - groupAvgs$se
+
+#get fits and predictions for each of these two groups based on the w and g
+#(nb: we should ultimately fit to the raw data and not to bins, this is just for display)
+fits <- ddply(groupAvgs, .(question), summarize, 
+              w=mle.weber.guess(r=ratioBin, meanCorrect)[[1]][1], g=mle.weber.guess(r=ratioBin, meanCorrect)[[1]][2])
+
+modelFits.group <- data.frame(y.values=NA, r.values=NA, quantifier=NA)
+r.values <- seq(1,2,by=.001)
+
+for (i in 1:nrow(fits)){
+  paramList <- c(fits[i,]$w, fits[i,]$g)
+  y <- weber.model.guess(params=paramList, r=r.values)
+  currentQuant <- fits[i,]$question
+  temp <- data.frame(y.values=y, r.values=r.values, quantifier=currentQuant)
+  modelFits.group <- rbind(modelFits.group, temp)
+}
+modelFits.group <- modelFits.group[-1,] #get rid of the first row 
+
 
 #plot the overall group accuracy
 ggplot(data=groupAvgs) + geom_point(aes(x=ratioBin, y=meanCorrect, color=question)) + theme_bw() + 
-  scale_y_continuous(limits = c(.5,1)) + ggtitle("Overall Group Data")
+  scale_y_continuous(limits = c(.5,1)) + ggtitle("Overall Group Data") + 
+  geom_errorbar(aes(x=ratioBin, ymax=upper, ymin=lower, color=question), size=0.15, width=.05) +
+  theme_bw() + theme(text = element_text(size=20)) + geom_line(data=modelFits.group, aes(x=r.values,y=y.values,color=quantifier))
 
 
 ##Now we need to look at how this changes given # of distractor sets 
@@ -49,13 +71,32 @@ groupAvgs_byDistractors <- ddply(bySubj_byDistractors, .(question, numberDistrac
 groupAvgs_byDistractors$upper <- groupAvgs_byDistractors$meanCorrect + groupAvgs_byDistractors$se
 groupAvgs_byDistractors$lower <- groupAvgs_byDistractors$meanCorrect - groupAvgs_byDistractors$se
 
+#get fits and predictions for each of these two groups based on the w and g
+#(nb: we should ultimately fit to the raw data and not to bins, this is just for display)
+fits_byDistractors <- ddply(groupAvgs_byDistractors, .(question, numberDistractorSets), summarize, 
+              w=mle.weber.guess(r=ratioBin, meanCorrect)[[1]][1], g=mle.weber.guess(r=ratioBin, meanCorrect)[[1]][2])
+
+modelFits.distractor <- data.frame(y.values=NA, r.values=NA, quantifier=NA, numberDistractorSets=NA)
+r.values <- seq(1,2,by=.001)
+
+for (i in 1:nrow(fits_byDistractors)){
+  paramList <- c(fits_byDistractors[i,]$w, fits_byDistractors[i,]$g)
+  y <- weber.model.guess(params=paramList, r=r.values)
+  currentQuant <- fits_byDistractors[i,]$question
+  numDistractors <- fits_byDistractors[i,]$numberDistractorSets
+  temp <- data.frame(y.values=y, r.values=r.values, quantifier=currentQuant, numberDistractorSets=numDistractors)
+  modelFits.distractor <- rbind(modelFits.distractor, temp)
+}
+modelFits.distractor <- modelFits.distractor[-1,] #get rid of the first row 
+
 #plot the overall group accuracy
 ggplot(data=groupAvgs_byDistractors) + geom_point(aes(x=ratioBin, y=meanCorrect, color=question)) + 
   scale_y_continuous(limits = c(.5,1)) + ggtitle("Overall Group Data, by # distractor sets") + facet_wrap(~numberDistractorSets) +
   geom_errorbar(aes(x=ratioBin, ymax=upper, ymin=lower, color=question), size=0.15, width=.05) +
-  theme_bw() + theme(text = element_text(size=20))
+  theme_bw() + theme(text = element_text(size=20)) + geom_line(data=modelFits.distractor, aes(x=r.values,y=y.values,color=quantifier))
 
-#
+
+#####
 ggplot(alldata_propMost, aes(x=ratioBin, y = correct))+
   stat_summary(geom = "point", fun.y = "mean") 
 ggplot(alldata_adjMost, aes(x=ratioBin, y = correct))+
