@@ -1,0 +1,217 @@
+---
+title: "cantoneseMost"
+output: html_document
+---
+## Setup 
+
+```{r setup}
+source("BAhelperFunctions.R")
+library(ggplot2)
+library(plyr)
+library(gridExtra)
+
+load("dataset.RData")
+
+alldata_adjMost$correct <- with(alldata_adjMost, ifelse(corrAns == TRUE, key_resp_TrueFalse.keys == "f", key_resp_TrueFalse.keys == "j"))
+head(alldata_adjMost[c("corrAns","key_resp_TrueFalse.keys","correct")])
+alldata_propMost$correct <- with(alldata_propMost, ifelse(corrAns == TRUE, key_resp_TrueFalse.keys == "f", key_resp_TrueFalse.keys == "j"))
+```
+
+
+First, get rid of every trial where the response wasn't 1 or 0
+```{r}
+alldata_propMost$correct <- as.numeric(alldata_propMost$correct)
+alldata_adjMost$correct <- as.numeric(alldata_adjMost$correct)
+
+#combine prop/det most and adj/largest-subset most dfs 
+allData <- rbind(alldata_propMost, alldata_adjMost)
+```
+
+
+```{r}
+ddply(allData, .(participant), summarize, meanAcc=mean(correct))
+```
+
+Remove any participants 
+```{r}
+allData -> backupCantoneseMost
+allData <- subset(backupCantoneseMost, participant!=14) #can't be fit -- below 60% overall 
+```
+
+##Det most v. Adj most
+Get overall participant avgs by ratio
+```{r}
+#how many participants do we have? 
+length(levels(as.factor(allData$participant))) -> numParticipants
+
+#for each subject 
+bySubj <- ddply(allData, .(question, participant, ratioBin), summarize, meanAcc=mean(correct))
+
+#for the group
+groupAvgs <- ddply(bySubj, .(question, ratioBin), summarize, meanCorrect=mean(meanAcc), se=sd(meanAcc)/sqrt(numParticipants))
+groupAvgs$upper <- groupAvgs$meanCorrect + groupAvgs$se
+groupAvgs$lower <- groupAvgs$meanCorrect - groupAvgs$se
+```
+
+
+Fit w and g for each of these two groups, then get predicted values for each ratio
+```{r}
+#fit to binned data 
+fits <- ddply(groupAvgs, .(question), summarize, 
+              w=mle.weber.guess(r=ratioBin, meanCorrect)[[1]][1], g=mle.weber.guess(r=ratioBin, meanCorrect)[[1]][2])
+
+#fit to raw data 
+fitsRaw <- ddply(allData, .(question), summarize, 
+              w=mle.weber.guess(r=ratio, correct)[[1]][1], g=mle.weber.guess(r=ratio, correct)[[1]][2])
+
+modelFits.group <- data.frame(y.values=NA, r.values=NA, quantifier=NA)
+r.values <- seq(1,2,by=.001)
+
+for (i in 1:nrow(fits)){
+  paramList <- c(fits[i,]$w, fits[i,]$g)
+  y <- weber.model.guess(params=paramList, r=r.values)
+  currentQuant <- fits[i,]$question
+  temp <- data.frame(y.values=y, r.values=r.values, quantifier=currentQuant)
+  modelFits.group <- rbind(modelFits.group, temp)
+}
+modelFits.group <- modelFits.group[-1,] #get rid of the first row 
+
+fits
+```
+
+Plot overall group accuracy 
+```{r}
+ggplot(data=groupAvgs) + geom_point(aes(x=ratioBin, y=meanCorrect, color=question)) + theme_bw() + 
+  scale_y_continuous(limits = c(.5,1)) + ggtitle("Overall Group Data") + 
+  geom_errorbar(aes(x=ratioBin, ymax=upper, ymin=lower, color=question), size=0.15, width=.05) +
+  theme_bw() + theme(text = element_text(size=20)) + geom_line(data=modelFits.group, aes(x=r.values,y=y.values,color=quantifier))
+```
+
+##Now look at how this changes given # of distractor sets 
+Get overall participant avgs by bins 
+```{r}
+#for each subject 
+bySubj_byDistractors <- ddply(allData, .(question, participant, numberDistractorSets, ratioBin), summarize, meanAcc=mean(correct))
+
+#for the group
+groupAvgs_byDistractors <- ddply(bySubj_byDistractors, .(question, numberDistractorSets, ratioBin), summarize, meanCorrect=mean(meanAcc), 
+                                 se=sd(meanAcc)/sqrt(numParticipants))
+groupAvgs_byDistractors$upper <- groupAvgs_byDistractors$meanCorrect + groupAvgs_byDistractors$se
+groupAvgs_byDistractors$lower <- groupAvgs_byDistractors$meanCorrect - groupAvgs_byDistractors$se
+```
+
+Fit w and g for each of these two groups, then get predicted values for each ratio
+```{r}
+#fit to binned data
+fits_byDistractors <- ddply(groupAvgs_byDistractors, .(question, numberDistractorSets), summarize, 
+                            w=mle.weber.guess(r=ratioBin, meanCorrect)[[1]][1], g=mle.weber.guess(r=ratioBin, meanCorrect)[[1]][2])
+
+#fit to raw data 
+fitsRaw_byDistractors <- ddply(allData, .(question, numberDistractorSets), summarize, 
+              w=mle.weber.guess(r=ratio, correct)[[1]][1], g=mle.weber.guess(r=ratio, correct)[[1]][2])
+
+modelFits.distractor <- data.frame(y.values=NA, r.values=NA, quantifier=NA, numberDistractorSets=NA)
+r.values <- seq(1,2,by=.001)
+
+for (i in 1:nrow(fits_byDistractors)){
+  paramList <- c(fits_byDistractors[i,]$w, fits_byDistractors[i,]$g)
+  y <- weber.model.guess(params=paramList, r=r.values)
+  currentQuant <- fits_byDistractors[i,]$question
+  numDistractors <- fits_byDistractors[i,]$numberDistractorSets
+  temp <- data.frame(y.values=y, r.values=r.values, quantifier=currentQuant, numberDistractorSets=numDistractors)
+  modelFits.distractor <- rbind(modelFits.distractor, temp)
+}
+modelFits.distractor <- modelFits.distractor[-1,] #get rid of the first row 
+
+fits_byDistractors
+```
+
+Plot the overall group accuracy by number of distractor sets 
+```{r}
+ggplot(data=groupAvgs_byDistractors) + geom_point(aes(x=ratioBin, y=meanCorrect, color=question)) + 
+  scale_y_continuous(limits = c(.48,1), breaks=c(.5,.75,1)) + ggtitle("Overall Group Data, by # distractor sets") + facet_wrap(~numberDistractorSets) +
+  geom_errorbar(aes(x=ratioBin, ymax=upper, ymin=lower, color=question), size=0.15, width=.05) +
+  theme_bw() + theme(text = element_text(size=20)) + geom_line(data=modelFits.distractor, aes(x=r.values,y=y.values,color=quantifier))
+
+ggsave(filename = "cantoneseMost.png", width = 26.458333333, height = 17.859375, units = "cm")
+```
+
+##Stats
+5 (ratio bins) x 4 (number distractor sets) x 2 (quantifier) anova 
+5 (ratio bins) x 4 (number distractor sets) anova for each quantifier 
+```{r}
+forAnova <- bySubj_byDistractors 
+forAnova$distractors <- as.factor(forAnova$numberDistractorSets)
+forAnova$ratios <- as.factor(forAnova$ratioBin)
+forAnova$participants <- as.factor(forAnova$participant)
+
+#aov(meanAcc ~ ratioBin * distractors * question + Error(participant/(ratioBin * distractors * question)),
+#    data=forAnova) -> fullAnova
+#summary(fullAnova) 
+
+print("--------------------------------prop most---------------------------------------------------")
+
+aov(meanAcc ~ ratios * distractors + Error(participants/(ratios * distractors)), 
+    data=subset(forAnova, question=="propMost")) -> propMostAnova
+summary(propMostAnova)
+
+print("--------------------------------adj most---------------------------------------------------")
+
+aov(meanAcc ~ ratios * distractors + Error(participants/(ratios * distractors)), 
+    data=subset(forAnova, question=="adjMost")) -> adjMostAnova
+summary(adjMostAnova)
+```
+
+##Individual fits 
+Input raw ratios (not binned) and accuracy on a given trial for each participant
+```{r}
+#fit to binned data
+fits_bySubj <- ddply(bySubj_byDistractors, .(participant, question, numberDistractorSets), summarize, 
+                            w=mle.weber.guess(r=ratioBin, meanAcc)[[1]][1], g=mle.weber.guess(r=ratioBin, meanAcc)[[1]][2])
+
+#fit to raw data 
+fitsRaw_bySubj <- ddply(allData, .(participant, question, numberDistractorSets), summarize, 
+              w=mle.weber.guess(r=ratio, correct)[[1]][1], g=mle.weber.guess(r=ratio, correct)[[1]][2])
+
+modelFits.subj <- data.frame(y.values=NA, r.values=NA, participant=NA, quantifier=NA, numberDistractorSets=NA)
+r.values <- seq(1,2,by=.001)
+
+for (i in 1:nrow(fitsRaw_bySubj)){
+  paramList <- c(fitsRaw_bySubj[i,]$w, fitsRaw_bySubj[i,]$g)
+  participant <- fitsRaw_bySubj[i,]$participant
+  y <- weber.model.guess(params=paramList, r=r.values)
+  currentQuant <- fitsRaw_bySubj[i,]$question
+  numDistractors <- fitsRaw_bySubj[i,]$numberDistractorSets
+  temp <- data.frame(y.values=y, r.values=r.values, participant=participant, quantifier=currentQuant, numberDistractorSets=numDistractors)
+  modelFits.subj <- rbind(modelFits.subj, temp)
+}
+modelFits.distractor <- modelFits.distractor[-1,] #get rid of the first row 
+modelFits.subj <- modelFits.subj[-1,] #get rid of the first row 
+
+fitsRaw_bySubj
+```
+
+Plot the individual fits 
+```{r}
+ggplot(data=bySubj_byDistractors) + geom_point(aes(x=ratioBin, y=meanAcc, color=question)) + 
+  scale_y_continuous(limits = c(.48,1), breaks=c(.5,.75,1)) + ggtitle("Individual data, by # distractor sets") +
+  #geom_errorbar(aes(x=ratioBin, ymax=upper, ymin=lower, color=question), size=0.15, width=.05) +
+  geom_line(data=modelFits.subj, aes(x=r.values,y=y.values,color=quantifier)) + 
+  facet_grid(participant~numberDistractorSets) + 
+  theme_bw() + theme(text = element_text(size=20))
+
+ggsave(filename = "cantoneseMost_bySubjs.png", width = 30, height = 35, units = "cm")
+```
+
+##Violin plots
+
+```{r}
+avgW <- ddply(fitsRaw_bySubj, .(question, numberDistractorSets), summarize, meanW=mean(w),
+              se=sd(w)/sqrt(length(unique(fitsRaw_bySubj$participant)))) 
+
+ggplot(data=fitsRaw_bySubj) + geom_violin(aes(x=as.factor(numberDistractorSets),y=w,fill=as.factor(numberDistractorSets))) + 
+  geom_point(aes(x=as.factor(numberDistractorSets),y=w), size=1) + 
+  geom_point(data=avgW, aes(x=as.factor(numberDistractorSets), y=meanW), size=10, shape="--", color="yellow") + 
+  facet_wrap(~question) + theme_bw() 
+```
+
