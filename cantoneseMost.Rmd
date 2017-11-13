@@ -131,7 +131,8 @@ Plot the overall group accuracy by number of distractor sets
 ggplot(data=groupAvgs_byDistractors) + geom_point(aes(x=ratioBin, y=meanCorrect, color=question)) + 
   scale_y_continuous(limits = c(.48,1), breaks=c(.5,.75,1)) + ggtitle("Overall Group Data, by # distractor sets") + facet_wrap(~numberDistractorSets) +
   geom_errorbar(aes(x=ratioBin, ymax=upper, ymin=lower, color=question), size=0.15, width=.05) +
-  theme_bw() + theme(text = element_text(size=20)) + geom_line(data=modelFits.distractor, aes(x=r.values,y=y.values,color=quantifier))
+  theme_bw() + theme(text = element_text(size=20)) + geom_line(data=modelFits.distractor, aes(x=r.values,y=y.values,color=quantifier)) +
+  ylab("mean correct") + xlab("ratio")
 
 ggsave(filename = "cantoneseMost.png", width = 26.458333333, height = 17.859375, units = "cm")
 ```
@@ -219,12 +220,12 @@ identicalDisplays.avg <- subset(groupAvgs_byTF, numberDistractorSets==1)
 identicalDisplays.fits <- subset(modelFits.TF, numberDistractorSets==1)
 
 ggplot(data=identicalDisplays.avg) + geom_point(aes(x=ratioBin, y=meanCorrect, color=question)) + 
-  scale_y_continuous(limits = c(.35,1), breaks=c(.5,.75,1)) + ggtitle("Overall Group Data, by correct answer") + 
+  scale_y_continuous(limits = c(.35,1), breaks=c(.5,.75,1)) + ggtitle("1-distractor displays, by correct answer") + 
   geom_errorbar(aes(x=ratioBin, ymax=upper, ymin=lower, color=question), size=0.15, width=.05) + 
   geom_line(data=identicalDisplays.fits, aes(x=r.values,y=y.values,color=quantifier)) + 
-  facet_wrap(~corrAns) + theme_bw() + theme(text = element_text(size=20)) 
+  facet_wrap(~corrAns) + theme_bw() + theme(text = element_text(size=20)) + ylab("mean correct") + xlab("ratio")
 
-ggsave(filename = "cantoneseMost_identicalDisplays.png", width = 26.458333333, height = 17.859375, units = "cm")
+ggsave(filename = "cantoneseMost_identicalDisplays.png", width = 26, height = 14, units = "cm")
 ```
 
 And run stats on the identical screens -- main effect of ratio, marginal main effect of correct answer, significant interaction b/t quantifier and correct answer 
