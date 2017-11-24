@@ -134,7 +134,32 @@ ggplot(data=groupAvgs_byDistractors) + geom_point(aes(x=ratioBin, y=meanCorrect,
   theme_bw() + theme(text = element_text(size=20)) + geom_line(data=modelFits.distractor, aes(x=r.values,y=y.values,color=quantifier)) +
   ylab("mean correct") + xlab("ratio")
 
-ggsave(filename = "cantoneseMost.png", width = 26.458333333, height = 17.859375, units = "cm")
+#ggsave(filename = "cantoneseMost.png", width = 26.458333333, height = 17.859375, units = "cm")
+```
+
+Same data but facet wrapped by question instead 
+```{r}
+#first prep the data frames 
+groupAvgs_byDistractors$quantifier <- ifelse(groupAvgs_byDistractors$question == "adjMost",
+                                             "largest subset", "proportional") #so we can wrap by quantifier 
+groupAvgs_byDistractors$quantifier <- factor(groupAvgs_byDistractors$quantifier, levels = c("proportional", "largest subset"))
+modelFits.distractor2 <- modelFits.distractor
+modelFits.distractor2$quantifier <- ifelse(modelFits.distractor2$quantifier=="propMost", "proportional", "largest subset")
+modelFits.distractor2$quantifier <- factor(modelFits.distractor2$quantifier, levels = c("proportional", "largest subset"))
+```
+
+```{r}
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+ggplot(data=groupAvgs_byDistractors) + geom_point(aes(x=ratioBin, y=meanCorrect*100, color=factor(numberDistractorSets))) + 
+  scale_y_continuous(limits = c(48,100), breaks=c(50,75,100)) + ggtitle("Percent correct and model fits") + 
+  geom_errorbar(aes(x=ratioBin, ymax=upper*100, ymin=lower*100, color=factor(numberDistractorSets)), size=0.15, width=.05) +
+  theme_bw() + facet_wrap(~quantifier) + theme(text = element_text(size=20)) + 
+  geom_line(data=modelFits.distractor2, aes(x=r.values,y=y.values*100,color=factor(numberDistractorSets))) +
+  ylab("mean correct") + xlab("ratio") + guides(color=guide_legend(title="number \ndistractor \nsets")) +
+  scale_color_manual(values=c(cbPalette[1],cbPalette[2],cbPalette[3],cbPalette[4]))
+
+#ggsave(filename = "cantoneseMost2.png", width = 26, height = 14, units = "cm")
 ```
 
 ##Stats
@@ -211,7 +236,7 @@ ggplot(data=groupAvgs_byTF) + geom_point(aes(x=ratioBin, y=meanCorrect, color=qu
   geom_line(data=modelFits.TF, aes(x=r.values,y=y.values,color=quantifier)) + 
   facet_grid(numberDistractorSets~corrAns) + theme_bw() + theme(text = element_text(size=20)) 
 
-ggsave(filename = "cantoneseMost_byTF.png", width = 26.458333333, height = 17.859375, units = "cm")
+#ggsave(filename = "cantoneseMost_byTF.png", width = 26.458333333, height = 17.859375, units = "cm")
 ```
 
 Zoom in on those identical display cases 
@@ -219,13 +244,17 @@ Zoom in on those identical display cases
 identicalDisplays.avg <- subset(groupAvgs_byTF, numberDistractorSets==1)
 identicalDisplays.fits <- subset(modelFits.TF, numberDistractorSets==1)
 
-ggplot(data=identicalDisplays.avg) + geom_point(aes(x=ratioBin, y=meanCorrect, color=question)) + 
-  scale_y_continuous(limits = c(.35,1), breaks=c(.5,.75,1)) + ggtitle("1-distractor displays, by correct answer") + 
-  geom_errorbar(aes(x=ratioBin, ymax=upper, ymin=lower, color=question), size=0.15, width=.05) + 
-  geom_line(data=identicalDisplays.fits, aes(x=r.values,y=y.values,color=quantifier)) + 
-  facet_wrap(~corrAns) + theme_bw() + theme(text = element_text(size=20)) + ylab("mean correct") + xlab("ratio")
+identicalDisplays.avg$quantifier <- ifelse(identicalDisplays.avg$question=="propMost", "proportional", "largest subset")
+identicalDisplays.fits$quantifier <- ifelse(identicalDisplays.fits$quantifier=="propMost", "proportional", "largest subset")
 
-ggsave(filename = "cantoneseMost_identicalDisplays.png", width = 26, height = 14, units = "cm")
+ggplot(data=identicalDisplays.avg) + geom_point(aes(x=ratioBin, y=meanCorrect*100, color=quantifier)) + 
+  scale_y_continuous(limits = c(35,100), breaks=c(50,75,100)) + ggtitle("1-distractor displays, by correct answer") + 
+  geom_errorbar(aes(x=ratioBin, ymax=upper*100, ymin=lower*100, color=quantifier), size=0.15, width=.05) + 
+  geom_line(data=identicalDisplays.fits, aes(x=r.values,y=y.values*100,color=quantifier)) + 
+  facet_wrap(~corrAns) + theme_bw() + theme(text = element_text(size=20)) + ylab("mean correct") + xlab("ratio") + 
+  scale_color_manual(values=c(cbPalette[6], cbPalette[7])) 
+
+#ggsave(filename = "cantoneseMost_identicalDisplays.png", width = 26, height = 14, units = "cm")
 ```
 
 And run stats on the identical screens -- main effect of ratio, marginal main effect of correct answer, significant interaction b/t quantifier and correct answer 
@@ -280,7 +309,7 @@ ggplot(data=bySubj_byDistractors) + geom_point(aes(x=ratioBin, y=meanAcc, color=
   facet_grid(participant~numberDistractorSets) + 
   theme_bw() + theme(text = element_text(size=20))
 
-ggsave(filename = "cantoneseMost_bySubjs.png", width = 30, height = 35, units = "cm")
+#ggsave(filename = "cantoneseMost_bySubjs.png", width = 30, height = 35, units = "cm")
 ```
 
 ##Violin plots
