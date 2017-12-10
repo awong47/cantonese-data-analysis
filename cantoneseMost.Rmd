@@ -163,25 +163,21 @@ ggplot(data=groupAvgs_byDistractors) + geom_point(aes(x=ratioBin, y=meanCorrect*
 ```
 
 ##Stats
-5 (ratio bins) x 4 (number distractor sets) x 2 (quantifier) anova 
-5 (ratio bins) x 4 (number distractor sets) anova for each quantifier 
+Separate anovas for each quantifier: 
+5 (ratio bins) x 4 (number distractor sets)  
 ```{r}
 forAnova <- bySubj_byDistractors 
 forAnova$distractors <- as.factor(forAnova$numberDistractorSets)
 forAnova$ratios <- as.factor(forAnova$ratioBin)
 forAnova$participants <- as.factor(forAnova$participant)
 
-#aov(meanAcc ~ ratioBin * distractors * question + Error(participant/(ratioBin * distractors * question)),
-#    data=forAnova) -> fullAnova
-#summary(fullAnova) 
-
-print("--------------------------------prop most---------------------------------------------------")
+print("--------------------------------prop(/det) most---------------------------------------------------")
 
 aov(meanAcc ~ ratios * distractors + Error(participants/(ratios * distractors)), 
     data=subset(forAnova, question=="propMost")) -> propMostAnova
 summary(propMostAnova)
 
-print("--------------------------------adj most---------------------------------------------------")
+print("--------------------------------super(/adj) most---------------------------------------------------")
 
 aov(meanAcc ~ ratios * distractors + Error(participants/(ratios * distractors)), 
     data=subset(forAnova, question=="adjMost")) -> adjMostAnova
@@ -256,6 +252,31 @@ ggplot(data=identicalDisplays.avg) + geom_point(aes(x=ratioBin, y=meanCorrect*10
 
 #ggsave(filename = "cantoneseMost_identicalDisplays.png", width = 26, height = 14, units = "cm")
 ```
+
+Try wrapping by quantifier instead 
+```{r}
+#first prep the data frames 
+identicalDisplays.avg2 <- identicalDisplays.avg
+identicalDisplays.avg2$answer <- factor(identicalDisplays.avg2$corrAns, levels=c("TRUE", "FALSE")) #so FALSE is red
+identicalDisplays.avg2$quantifier <- factor(identicalDisplays.avg2$quantifier, levels=c("proportional", "largest subset"))
+
+identicalDisplays.fits2 <- identicalDisplays.fits
+identicalDisplays.fits2$answer <- identicalDisplays.fits2$corrAns
+identicalDisplays.fits2$quantifier <- factor(identicalDisplays.fits2$quantifier, levels=c("proportional", "largest subset"))
+```
+
+
+```{r}
+ggplot(data=identicalDisplays.avg2) + geom_point(aes(x=ratioBin, y=meanCorrect*100, color=answer)) + 
+  scale_y_continuous(limits = c(35,100), breaks=c(50,75,100)) + ggtitle("One-distractor displays") + 
+  geom_errorbar(aes(x=ratioBin, ymax=upper*100, ymin=lower*100, color=answer), size=0.15, width=.05) + 
+  geom_line(data=identicalDisplays.fits2, aes(x=r.values,y=y.values*100,color=answer)) + 
+  facet_wrap(~quantifier) + theme_bw() + theme(text = element_text(size=20)) + ylab("mean correct") + xlab("ratio") + 
+  scale_color_manual(values=c(cbPalette[6], cbPalette[7])) 
+
+#ggsave(filename = "cantoneseMost_identicalDisplays2.png", width = 26, height = 14, units = "cm")
+```
+
 
 And run stats on the identical screens -- main effect of ratio, marginal main effect of correct answer, significant interaction b/t quantifier and correct answer 
 ```{r}
